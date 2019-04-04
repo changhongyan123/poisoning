@@ -1,5 +1,5 @@
-
-
+import numpy as np
+import random
 
 def posioning_attack(type,dataset,model_structure,poisoning_fraction):
     #input:
@@ -30,23 +30,27 @@ def posioning_attack(type,dataset,model_structure,poisoning_fraction):
     dataset["poisoning_train"] = posioning_data
     return dataset
 
-def label_flip_attack(clean_train,poisoning_fraction):
-    sample = clean_train["X"]
+def label_flip_attack(clean_train,fraction):
+    sample = clean_train["X"].shape[0]
     poisoing_sample = int(sample * fraction)
-
+    X = clean_train["X"]
+    Y = clean_train["Y"]
     Z_c = np.ones(sample)
     Z_p = np.zeros(poisoing_sample)
     Z = np.concatenate((Z_c, Z_p), axis=0)
 
     x_p = np.copy(X[:poisoing_sample])
     y_p = np.copy(Y[:poisoing_sample])
-    y_p = (1+y_p)%2 # how to change the label TODO
+
+    #generate random label
+    labels = np.unique(Y)
+    max = np.max(labels)
+    y_p = np.random.randint(max, size=y_p.shape)
 
     X = np.concatenate((X[poisoing_sample:], x_p), axis=0)
     Y = np.concatenate((Y[poisoing_sample:], y_p), axis=0)
-
+    poisoning_data = {}
     poisoning_data["X"] = X
     poisoning_data["Y"] = Y
-    poisoning_data["Poisoned"] = Z
-
+    poisoning_data["Is_Poisoned"] = Z
     return  poisoning_data

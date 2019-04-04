@@ -1,38 +1,37 @@
 from attack import posioning_attack
 from model import create_model
 from load_data import load_dataset
+from train import convert_dataset,training_network
+from attack import posioning_attack
+import numpy as np
+import keras
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-from train import convert_dataset
 dataset_list = ['mnist','fashion mnist','cifar10','cifar100']
-
+attack_list = ['loss','lable attack','gradient ascent','min max','influence']
 
 
 if __name__ == '__main__':
-    poisoning_fraction = 0.2
-    poisoning_type = 'lable attack'
-    training_epoch = 50
-    learning_rate = 0.1
-    dataset_name = 'cifar10'
-    model_name = 'CNN'
-    batch_size = 128
-    learning_epoch = 1
 
-    dataset = load_dataset(dataset_name)
-    x_train,y_train,x_test,y_test,input_dim,out_dim = convert_dataset(model_name,dataset)
+
+
+    training_info = {}
+    training_info['poisoning_fraction'] = 0.2
+    training_info['poisoning_type'] = 'lable attack'
+    training_info['is_poisoning'] = True
+    training_info['training_epoch'] = 10
+    training_info['learning_rate'] = 0.01
+    training_info['dataset_name'] = 'mnist'
+    training_info['model_name'] = 'CNN'
+    training_info['batch_size'] = 128
+
+    dataset = load_dataset(training_info['dataset_name'])
 
 
     parameters = {}
-    functions = {}
-    functions['optimizer'] = 'adam'
-    functions['loss'] = 'categorical_crossentropy'
-    functions['activation'] = 'softmax'
-    metrics = ['accuracy']
-    parameters['input_shape'] = input_dim
-    parameters['output_shape'] = out_dim
-
-
-    # parameters['hidden_layer'] = [20,10,10] MLP parameters
-
+    parameters['input_shape'] = dataset['clean_train']['X'][0].shape
+    parameters['output_shape'] = len(np.unique(dataset['clean_train']['Y']))
     parameters['fc_layer'] = [20,10]
     parameters['cnn_layer'] = {}
     parameters['cnn_layer']['filter_number'] = [16,8,8]
@@ -41,20 +40,26 @@ if __name__ == '__main__':
     parameters['data_format'] = 'channels_last'
 
 
-    model = create_model(model_name,parameters,functions,metrics)
-    model.fit(x_train,y_train, epochs=learning_epoch, batch_size=batch_size)
-    score = model.evaluate(x_test, y_test, batch_size=batch_size)
+    functions = {}
+    functions['optimizer'] = 'adam'
+    functions['loss'] = 'categorical_crossentropy'
+    functions['activation'] = 'softmax'
+
+    metrics = ['accuracy']
+
+    #clean model
+    training_info['is_poisoning'] = True
+    model = create_model(training_info['model_name'],parameters,functions,metrics)
+    training_network(model,dataset,training_info,parameters,functions)
 
 
-    print('--------------Training Information---------------')
-    print(model.summary())
-    print('Input shape: '+ str(input_dim))
-    print('Output shape: '+ str(out_dim))
-    print('dataset: ' + dataset_name)
-    print('model name: ' + model_name)
-    print('learning_rate: '+ str(learning_rate))
-    print('batch_size: '+ str(batch_size))
-    print('learning epochs: '+ str(learning_epoch))
-    print('evaluation :' + str(score))
-    print('optimizer: ' + functions['optimizer'] )
-    print('-------------------------------------------------')
+    #poisoning model
+    for f in [0.1,0.2,0.3,0.4,0.5]:
+        model_p = create_model(training_info['model_name'],parameters,functions,metrics)
+        training_info['is_poisoning'] = True
+        training_network(model_p,dataset,training_info,parameters,functions)
+
+
+
+
+    # parameters['hidden_layer'] = [20,10,10] MLP parameters
