@@ -7,7 +7,6 @@ from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.applications.vgg16 import VGG16
 
-
 def MLP(hidden_layer,input_dim,out_dim,activate_fun,loss_fun,optimizer_fun,metrics):
     # parameters['hidden_layer'] = [20,10,2]
     # parameters['input_shape'] =(3,20,20)
@@ -28,43 +27,36 @@ def MLP(hidden_layer,input_dim,out_dim,activate_fun,loss_fun,optimizer_fun,metri
     return model
 
 def CNN(cnn_layer,fc_layer,input_shape,output_shape,activate_fun,loss_fun,optimizer_fun,metrics,data_format):
-    # parameters = {}
-    # functions ={}
-    #
-    # functions['optimizer'] = 'rmsprop'
-    # functions['loss'] = 'binary_crossentropy'
-    # functions['activation'] = 'sigmoid'
-    # metrics = ['accuracy']
-    # parameters['output_shape'] = 1
-    # parameters['input_shape'] = (3,150,150)
-    #
-    #
-    #
-    # parameters['fc_layer'] = [20,10,2]
-    # parameters['cnn_layer'] = {}
-    # parameters['cnn_layer']['filter_number'] = [32,32,64]
-    # parameters['cnn_layer']['filter_shape'] =[(3,3),(3,3),(3,3)]
-    # parameters['cnn_layer']['pooling_shape'] = [(2,2),(2,2),(2,2)]
-    # parameters['data_format'] = 'channels_first'
-
     model = Sequential()
-    for i in range(len(cnn_layer)):
+    for i in range(len(cnn_layer['filter_number'])):
         if i == 0:
-            model.add(Conv2D(cnn_layer['filter_number'][i], cnn_layer['filter_shape'][i], data_format=data_format,input_shape=input_shape))
+            model.add(Conv2D(cnn_layer['filter_number'][i], cnn_layer['filter_shape'][i],
+                # kernel_initializer=cnn_layer['kernel_init'],
+                # bias_initializer=cnn_layer['bias_init'],
+                data_format=data_format,padding=cnn_layer['padding'],input_shape=input_shape))
         else:
-            model.add(Conv2D(cnn_layer['filter_number'][i], cnn_layer['filter_shape'][i],data_format=data_format))
+            model.add(Conv2D(cnn_layer['filter_number'][i], cnn_layer['filter_shape'][i],data_format=data_format,
+            padding=cnn_layer['padding']
+            # kernel_initializer=cnn_layer['kernel_init'],
+            # bias_initializer=cnn_layer['bias_init']
+            ))
         model.add(Activation('relu'))
         model.add(MaxPooling2D(pool_size=cnn_layer['pooling_shape'][i],data_format=data_format))
     model.add(Flatten())
 
     for j in range(len(fc_layer)):
-        model.add(Dense(fc_layer[j], activation='relu'))
+        model.add(Dense(fc_layer[j],
+        # kernel_initializer=cnn_layer['kernel_init'],
+        # bias_initializer=cnn_layer['bias_init'],
+        activation='relu'))
     model.add(Dense(output_shape, activation=activate_fun))
+
     model.compile(optimizer=optimizer_fun,loss=loss_fun,metrics=metrics)
     return model
 
-def VGG():
-    model = VGG16(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+def VGG(input_shape,output_shape,optimizer_fun,loss_fun,metrics):
+    model = VGG16(inputs=input_shape,include_top=True, weights='imagenet', classes=output_shape)
+    model.compile(optimizer=optimizer_fun,loss=loss_fun,metrics=metrics)
     return model
 
 def create_model(type,parameters,functions,metrics):
@@ -82,24 +74,20 @@ def create_model(type,parameters,functions,metrics):
         cnn_layer = parameters['cnn_layer']
         data_format = parameters['data_format']
         model = CNN(cnn_layer,fc_layer,input_dim,out_dim,activation,loss,optimizer,metrics,data_format)
-    elif type == 'VGG':
-        model = VGG()
-    #TODO: add more information about the networks
-
     return model
 
 
 
 
-parameters = {}
-functions ={}
-
-functions['optimizer'] = 'rmsprop'
-functions['loss'] = 'binary_crossentropy'
-functions['activation'] = 'sigmoid'
-metrics = ['accuracy']
-parameters['output_shape'] = 1
-parameters['input_shape'] = (3,150,150)
+# parameters = {}
+# functions ={}
+#
+# functions['optimizer'] = 'rmsprop'
+# functions['loss'] = 'binary_crossentropy'
+# functions['activation'] = 'sigmoid'
+# metrics = ['accuracy']
+# parameters['output_shape'] = 1
+# parameters['input_shape'] = (3,150,150)
 
 
 
