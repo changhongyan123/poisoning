@@ -41,147 +41,148 @@ def posioning_attack(type,dataset,model_structure,poisoning_fraction,training_in
     clean_train = dataset["clean_train"]
     clean_test = dataset["clean_test"]
 
-    x_train,y_train,x_test,y_test =convert_dataset(training_info['model_name'],clean_train["X"],clean_train["Y"],clean_test["X"],clean_test["Y"])
+    x_train,y_train,x_test,y_test =convert_dataset(training_info['model_name'],clean_train["X"],clean_train["Y"],clean_test["X"],clean_test["Y"],training_info)
 
 
     if type == 'loss':
         posioning_data = loss_attack(x_train,y_train,x_test,y_test,poisoning_fraction,model_structure,is_load)
-    elif type == 'lable attack':
+    elif type == 'lable_attack':
         posioning_data = label_flip_attack(x_train,y_train,x_test,y_test,poisoning_fraction,is_load)
-    elif type == 'random attack':
+    elif type == 'random_attack':
         posioning_data = noisy_attack(x_train,y_train,x_test,y_test,poisoning_fraction,is_load)
-    elif type == 'gradient ascent':
-        posioning_data = gradient_ascent_attack(x_train,training_info['dataset_name'],poisoning_fraction,is_load,n_round=training_info['posioned_round'])
-    elif type == 'min max':
+    elif type == 'gradient_ascent':
+        posioning_data = gradient_ascent_attack(x_train,y_train,training_info['dataset_name'],poisoning_fraction,is_load,n_round=training_info['posioned_round'])
+    elif type == 'min_max':
         posioning_data = min_max_attack(x_train,y_train,x_test,y_test,poisoning_fraction,model_structure,is_load)
     elif type == 'influence':
         posioning_data = influence_attack(clean_train,clean_test,poisoning_fraction,is_load)
     elif type == 'generative':
-        posioning_data = generative_model(x_train,training_info['dataset_name'],poisoning_fraction,is_load,n_round=training_info['posioned_round'])
+        posioning_data = generative_model(x_train,y_train,training_info['dataset_name'],poisoning_fraction,is_load,n_round=training_info['posioned_round'])
 
     dataset["poisoning_data"] = posioning_data
     return dataset
 
 def label_flip_attack(x_train,y_train,x_test,y_test,fraction,is_load,num_classes=10):
-    #Just change the label attack
-    if is_load == False:
-        sample = x_train.shape[0]
-        poisoing_sample = int(sample * fraction)
+    # This function is generate the lable flip attack. The lable is random selected.
+    # input : x_train,y_train,x_test,y_test,poisoning fraction
+    # output: x_p,y_p
 
-        x_p = np.copy(x_train[:poisoing_sample])
-        y_p = np.copy(y_train[:poisoing_sample])
+    sample = x_train.shape[0]
+    poisoing_sample = int(sample * fraction)
 
-        #generate random label
+    x_p = np.copy(x_train[:poisoing_sample])
+    y_p = np.copy(y_train[:poisoing_sample])
+    y_p = np.random.randint(num_classes, size=y_p.shape[0])
+    if len(y_train.shape) != len(y_p.shape):
+        y_p = to_categorical(y_p, num_classes=num_classes)
+    poisoning_data = {}
+    poisoning_data["X"] = x_p
+    poisoning_data["Y"] = y_p
 
-        labels_p = np.random.randint(num_classes, size=y_p.shape[0])
-        y_p = to_categorical(labels_p, num_classes=num_classes)
-
-        poisoning_data = {}
-        poisoning_data["X"] = x_p
-        poisoning_data["Y"] = y_p
-
-        file_name = 'label_flip_' + str(fraction)
-        save_poisoning_data(file_name,poisoning_data)
-        print('finish generate the posioning data: lable attack')
-    else:
-        file_name = 'label_flip_' + str(fraction)
-        poisoning_data = load_poisoning_data(file_name)
+    file_name = 'label_flip_' + str(fraction)
+    save_poisoning_data(file_name,poisoning_data)
     return  poisoning_data
 
 
 
 
 def loss_attack(x_train,y_train,x_test,y_test,fraction,model,is_load,n_built_in = 5):
-    if is_load == False:
-        # generate the posioning data based on the loss. each class repeat 10 times.
+    # This function is to generate the posioning data. Output the examples which has large loss value.
+    # input : x_train,y_train,x_test,y_test,poisoning fraction
+    # output: x_p,y_p
 
-        model.fit(x_train,y_train,epochs=n_built_in,verbose=0)
-        n_bad_points = int(fraction*x_train.shape[0])
-        poisoning_point = {"X":[],"Y":[]}
-        history = LossHistory()
-        generate_points = int(n_bad_points/10)
-        loss = model.evaluate(x_train,y_train,verbose = 0,callbacks=[history],batch_size=1)
-        max_index = np.argsort(history.losses)[-generate_points:]
-        x_i = x_train[max_index]
-        y_i = y_train[max_index]
+    model.fit(x_train,y_train,epochs=n_built_in,verbose=0)
+    n_bad_points = int(fraction*x_train.shape[0])
+    poisoning_point = {}
+    history = LossHistory()
 
-        x_i = np.repeat(x_i,10,axis=0)
-        y_i = np.repeat(y_i,10,axis=0)
-        # poisoning_point = {}
-        poisoning_point["X"].append(x_i)
-        poisoning_point["Y"].append(y_i)
-        file_name = 'loss_attack_' + str(fraction)
-        save_poisoning_data(file_name,poisoning_point)
-        return poisoning_point
-    else:
-        file_name = 'loss_attack_' + str(fraction)
-        poisoning_point = load_poisoning_data(file_name)
-        return poisoning_point
+    loss = model.evaluate(x_train,y_train,verbose = 0,callbacks=[history],batch_size=1)
+    max_index = np.argsort(history.losses)[-n_bad_points:]
+    x_p = x_train[max_index]
+    y_p = y_train[max_index]
 
-def gradient_ascent_attack(x_train,datatype,fraction,is_load,n_round,num_classes=10):
-    #n n_round is the round of the poisoning generate
+    poisoning_point['X'] = x_p
+    poisoning_point['Y'] = y_p
+
+    file_name = 'loss_attack_' + str(fraction)
+    save_poisoning_data(file_name,poisoning_point)
+    print(y_p.shape)
+    return poisoning_point
+
+
+def gradient_ascent_attack(x_train,y_train,datatype,fraction,is_load,n_round,num_classes=10):
+    # This function is load the pre-trained poisoning data trained on the gradient_ascent model
+    # input : x_train,y_train,x_test,y_test,poisoning fraction
+    # output: x_p,y_p
     sample = x_train.shape[0]
     poisoing_sample = int(sample * fraction)
-    if is_load ==True:
-        filename = 'poisoningData/gradient_attack_'+datatype+'.npz'
-        data = np.load(filename)
 
-        x_p = data['X'][:,n_round]
-        x_p = x_p.reshape(-1,data['X'].shape[-1])
-        label_p = data['Y'][:,n_round].reshape(-1)
-        y_p = to_categorical(label_p, num_classes=num_classes)
+    filename = 'poisoningData/gradient_attack_'+datatype+'.npz'
+    data = np.load(filename)
 
+    x_p = data['X'][:,n_round]
+    x_p = x_p.reshape(-1,data['X'].shape[-1])
+    y_p = data['Y'][:,n_round].reshape(-1)
+    y_p = y_p%10
+    if len(y_train.shape) != len(y_p.shape) :
+        y_p = to_categorical(y_p, num_classes=num_classes)
+
+    if poisoing_sample > x_p.shape[0]:
         n_repeat = int(poisoing_sample/x_p.shape[0])
         x_p = np.repeat(x_p,n_repeat,axis=0)
         y_p = np.repeat(y_p,n_repeat,axis=0)
 
-        poisoning_data= {}
-        poisoning_data["X"] = x_p
-        poisoning_data["Y"]  = y_p
-        return poisoning_data
+    poisoning_data= {}
+    poisoning_data["X"] = x_p
+    poisoning_data["Y"]  = y_p
+    return poisoning_data
 
-def generative_model(x_train,datatype,fraction,is_load,n_round,num_classes=10):
-    #n n_round is the round of the poisoning generate
+def generative_model(x_train,y_train,datatype,fraction,is_load,n_round,num_classes=10):
+    # This function is load the pre-trained poisoning data trained on the generative model
+    # input : x_train,y_train,x_test,y_test,poisoning fraction
+    # output: x_p,y_p
+
     sample = x_train.shape[0]
     poisoing_sample = int(sample * fraction)
-    if is_load ==True:
-        filename = 'poisoningData/generative_attack_'+datatype+'_50.npz'
-        data = np.load(filename)
 
-        x_p = data['X'][:,n_round]
-        x_p = x_p.reshape(-1,data['X'].shape[-1])
-        label_p = data['Y'][:,n_round].reshape(-1)
-        y_p = to_categorical(label_p, num_classes=num_classes)
+    filename = 'poisoningData/generative_attack_'+datatype+'.npz'
+    data = np.load(filename)
 
+    x_p = data['X'][:,n_round]
+    x_p = x_p.reshape(-1,data['X'].shape[-1])
+    y_p = data['Y'][:,n_round].reshape(-1)
+
+    if len(y_train.shape) != len(y_p.shape) :
+        y_p = to_categorical(y_p, num_classes=num_classes)
+
+    if poisoing_sample > x_p.shape[0]:
         n_repeat = int(poisoing_sample/x_p.shape[0])
-        print('repeat '+str(n_repeat)+'times')
         x_p = np.repeat(x_p,n_repeat,axis=0)
         y_p = np.repeat(y_p,n_repeat,axis=0)
 
-        poisoning_data= {}
-        poisoning_data["X"] = x_p
-        poisoning_data["Y"]  = y_p
+    poisoning_data= {}
+    poisoning_data["X"] = x_p
+    poisoning_data["Y"]  = y_p
     return poisoning_data
 
 def noisy_attack(x_train,y_train,x_test,y_test,fraction,is_load,num_classes=10):
-    if is_load == False:
-        sample = x_train.shape[0]
-        poisoing_sample = int(sample * fraction)
+    # This function is generate the noise attack. Add random pixel to the origin image.
+    # input : x_train,y_train,x_test,y_test,poisoning fraction
+    # output: x_p,y_p
 
-        x_p = np.copy(x_train[:poisoing_sample])
-        y_p = np.copy(y_train[:poisoing_sample])
-        noisy = np.random.normal(0,1,x_p.shape)
-        x_p = x_p + noisy
-        y_p = to_categorical(x_p, num_classes=num_classes)
+    sample = x_train.shape[0]
+    poisoing_sample = int(sample * fraction)
 
-        poisoning_data = {}
-        poisoning_data["X"] = x_p
-        poisoning_data["Y"] = y_p
+    x_p = np.copy(x_train[:poisoing_sample])
+    y_p = np.copy(y_train[:poisoing_sample])
+    noisy = np.random.normal(0,1,x_p.shape)
+    x_p = x_p + noisy
 
-        file_name = 'nosiy_attack' + str(fraction)
-        save_poisoning_data(file_name,poisoning_data)
-        print('finish generate the posioning data: noisy attack')
-    else:
-        file_name = 'label_flip_' + str(fraction)
-        poisoning_data = load_poisoning_data(file_name)
+    poisoning_data = {}
+    poisoning_data["X"] = x_p
+    poisoning_data["Y"] = y_p
+
+    file_name = 'noisy_attack_' + str(fraction)
+    save_poisoning_data(file_name,poisoning_data)
+    print(y_p.shape)
     return  poisoning_data

@@ -22,7 +22,7 @@ def MLP(hidden_layer,input_dim,out_dim,activate_fun,loss_fun,optimizer_fun,metri
             model.add(Dense(hidden_layer[i], activation='relu', input_dim=input_dim))
         else:
             model.add(Dense(hidden_layer[i], activation='relu'))
-    model.add(Dense(out_dim, activation=activate_fun))
+    model.add(Dense(out_dim, activation=activate_fun,name='preds'))
     model.compile(optimizer=optimizer_fun,loss=loss_fun,metrics=metrics)
     return model
 
@@ -49,7 +49,7 @@ def CNN(cnn_layer,fc_layer,input_shape,output_shape,activate_fun,loss_fun,optimi
         # kernel_initializer=cnn_layer['kernel_init'],
         # bias_initializer=cnn_layer['bias_init'],
         activation='relu'))
-    model.add(Dense(output_shape, activation=activate_fun))
+    model.add(Dense(output_shape, activation=activate_fun, name='preds'))
 
     model.compile(optimizer=optimizer_fun,loss=loss_fun,metrics=metrics)
     return model

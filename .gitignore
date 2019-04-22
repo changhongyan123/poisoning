@@ -1,2 +1,14 @@
 __pycache__/
 history/
+figure/*
+.idea/
+poisoning/
+poisoningData/*
+model/*
+online_loss/
+._example.py
+._vis_example2.py
+.DS_Store
+._visualization.py
+optimal_attack/._.DS_Store
+optimal_attack/.DS_Store
