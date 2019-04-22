@@ -4,7 +4,6 @@ This project is to analysis the nerual network under the posioning attack from t
 
 Now, the code already contain the transfer learning, online learning and the end to end learning settings. For the dataset, it supprt the MNIST dataset and CIFAR10 dataset.
 
-## Set up
 
 ### Gnenerate the optimal poisoning data.
 
